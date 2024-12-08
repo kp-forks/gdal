@@ -1779,10 +1779,10 @@ CPLErr CPLParseMemorySize(const char *pszValue, GIntBig *pnValue,
         return CE_Failure;
     }
 
-    if (value <= 0 || !std::isfinite(value))
+    if (value < 0 || !std::isfinite(value))
     {
         CPLError(CE_Failure, CPLE_IllegalArg,
-                 "Memory size must be a positive number.");
+                 "Memory size must be a positive number or zero.");
         return CE_Failure;
     }
 
@@ -1800,6 +1800,12 @@ CPLErr CPLParseMemorySize(const char *pszValue, GIntBig *pnValue,
                     return CE_Failure;
                 }
                 auto bytes = CPLGetUsablePhysicalRAM();
+                if (bytes == 0)
+                {
+                    CPLError(CE_Failure, CPLE_NotSupported,
+                             "Cannot determine usable physical RAM");
+                    return CE_Failure;
+                }
                 value *= static_cast<double>(bytes / 100);
                 unit = c;
             }
@@ -1842,7 +1848,10 @@ CPLErr CPLParseMemorySize(const char *pszValue, GIntBig *pnValue,
     }
 
     *pnValue = static_cast<GIntBig>(value);
-    *pbUnitSpecified = (unit != nullptr);
+    if (pbUnitSpecified)
+    {
+        *pbUnitSpecified = (unit != nullptr);
+    }
     return CE_None;
 }
 
@@ -2776,12 +2785,19 @@ char *CPLUnescapeString(const char *pszInput, int *pnLength, int nScheme)
 char *CPLBinaryToHex(int nBytes, const GByte *pabyData)
 
 {
-    char *pszHex = static_cast<char *>(CPLMalloc(nBytes * 2 + 1));
+    CPLAssert(nBytes >= 0);
+    char *pszHex = static_cast<char *>(
+        VSI_MALLOC_VERBOSE(static_cast<size_t>(nBytes) * 2 + 1));
+    if (!pszHex)
+    {
+        pszHex = CPLStrdup("");
+        return pszHex;
+    }
     pszHex[nBytes * 2] = '\0';
 
     constexpr char achHex[] = "0123456789ABCDEF";
 
-    for (int i = 0; i < nBytes; ++i)
+    for (size_t i = 0; i < static_cast<size_t>(nBytes); ++i)
     {
         const int nLow = pabyData[i] & 0x0f;
         const int nHigh = (pabyData[i] & 0xf0) >> 4;

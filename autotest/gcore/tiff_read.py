@@ -1,7 +1,6 @@
 #!/usr/bin/env pytest
 # -*- coding: utf-8 -*-
 ###############################################################################
-# $Id$
 #
 # Project:  GDAL/OGR Test Suite
 # Purpose:  Test basic read support for a all datatypes from a TIFF file.
@@ -3266,7 +3265,7 @@ def test_tiff_read_gcp_internal_and_auxxml(
 # Test reading .tif + .aux
 
 
-class myHandlerClass(object):
+class myHandlerClass:
     def __init__(self):
         self.msg = None
 

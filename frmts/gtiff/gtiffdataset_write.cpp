@@ -5252,10 +5252,10 @@ TIFF *GTiffDataset::CreateLL(const char *pszFilename, int nXSize, int nYSize,
     }
 
 #ifdef HAVE_JXL
-    if (l_nCompression == COMPRESSION_JXL)
+    if (l_nCompression == COMPRESSION_JXL && eType != GDT_Float32)
     {
         // Reflects tif_jxl's GetJXLDataType()
-        if (eType != GDT_Byte && eType != GDT_UInt16 && eType != GDT_Float32)
+        if (eType != GDT_Byte && eType != GDT_UInt16)
         {
             ReportError(pszFilename, CE_Failure, CPLE_NotSupported,
                         "Data type %s not supported for JXL compression. Only "
@@ -5271,7 +5271,6 @@ TIFF *GTiffDataset::CreateLL(const char *pszFilename, int nXSize, int nYSize,
         } asSupportedDTBitsPerSample[] = {
             {GDT_Byte, 8},
             {GDT_UInt16, 16},
-            {GDT_Float32, 32},
         };
 
         for (const auto &sSupportedDTBitsPerSample : asSupportedDTBitsPerSample)
@@ -7056,10 +7055,10 @@ GDALDataset *GTiffDataset::CreateCopy(const char *pszFilename,
             CPLMalloc(nExtraSamples * sizeof(uint16_t)));
         memcpy(pasNewExtraSamples, extraSamples,
                nExtraSamples * sizeof(uint16_t));
-        uint16_t nAlpha = GTiffGetAlphaValue(
-            CPLGetConfigOption("GTIFF_ALPHA",
-                               CSLFetchNameValue(papszOptions, "ALPHA")),
-            DEFAULT_ALPHA_TYPE);
+        const char *pszAlpha = CPLGetConfigOption(
+            "GTIFF_ALPHA", CSLFetchNameValue(papszOptions, "ALPHA"));
+        const uint16_t nAlpha =
+            GTiffGetAlphaValue(pszAlpha, DEFAULT_ALPHA_TYPE);
         const int nBaseSamples = l_nBands - nExtraSamples;
         for (int iExtraBand = nBaseSamples + 1; iExtraBand <= l_nBands;
              iExtraBand++)
@@ -7068,6 +7067,16 @@ GDALDataset *GTiffDataset::CreateCopy(const char *pszFilename,
                 GCI_AlphaBand)
             {
                 pasNewExtraSamples[iExtraBand - nBaseSamples - 1] = nAlpha;
+                if (!pszAlpha)
+                {
+                    // Use the ALPHA metadata item from the source band, when
+                    // present, if no explicit ALPHA creation option
+                    pasNewExtraSamples[iExtraBand - nBaseSamples - 1] =
+                        GTiffGetAlphaValue(
+                            poSrcDS->GetRasterBand(iExtraBand)
+                                ->GetMetadataItem("ALPHA", "IMAGE_STRUCTURE"),
+                            nAlpha);
+                }
             }
         }
         TIFFSetField(l_hTIFF, TIFFTAG_EXTRASAMPLES, nExtraSamples,

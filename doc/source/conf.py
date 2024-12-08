@@ -68,10 +68,13 @@ extensions = [
     "breathe",
     "configoptions",
     "driverproperties",
+    "cli_example",
     "source_file",
     "sphinx.ext.napoleon",
     "sphinxcontrib.jquery",
+    "sphinxcontrib_programoutput_gdal",
     "sphinxcontrib.spelling",
+    "myst_nb",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -84,6 +87,7 @@ exclude_patterns = [
     "substitutions.rst",
     "programs/options/*.rst",
     "api/python/modules.rst",
+    "gdal_rtd/README.md",
 ]
 
 # Prevents double hyphen (--) to be replaced by Unicode long dash character
@@ -111,6 +115,12 @@ offline_download_text += f"available as a `PDF <{url_root}{pdf_url}>`__ or a `ZI
 rst_prolog += f"""
 .. |offline-download| replace:: {offline_download_text}
 """
+
+source_suffix = {
+    ".rst": "restructuredtext",
+    ".ipynb": "myst-nb",
+    ".myst": "myst-nb",
+}
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -151,7 +161,9 @@ html_theme_options = {
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
-html_extra_path = ["../build/html_extra"]
+
+# For generated content and robots.txt
+html_extra_path = ["../build/html_extra", "extra_path"]
 
 # If true, links to the reST sources are added to the pages.
 html_show_sourcelink = False
@@ -491,6 +503,7 @@ man_pages = [
 preamble = r"""
 \ifdefined\DeclareUnicodeCharacter
   \DeclareUnicodeCharacter{2032}{$'$}% prime
+  \DeclareUnicodeCharacter{200B}{{\hskip 0pt}}
 \fi
 """
 
@@ -573,3 +586,10 @@ options_since_ignore_before = "3.0"
 spelling_ignore_contributor_names = False
 
 spelling_word_list_filename = ["spelling_wordlist.txt"]
+
+# -- myst-nb --------------------------------------------------
+
+# Sets `text/plain` as the highest priority for `spelling` output.
+nb_mime_priority_overrides = [
+    ("spelling", "text/plain", 0),
+]
