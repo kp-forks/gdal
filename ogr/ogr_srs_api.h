@@ -1,5 +1,4 @@
 /******************************************************************************
- * $Id$
  *
  * Project:  OpenGIS Simple Features Reference Implementation
  * Purpose:  C API and constant declarations for OGR Spatial References.
@@ -426,7 +425,7 @@ const char CPL_DLL *OSRAxisEnumToName(OGRAxisOrientation eOrientation);
 #define DEFINED_OGRSpatialReferenceH
 /*! @endcond */
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(GDAL_DEBUG)
 typedef struct OGRSpatialReferenceHS *OGRSpatialReferenceH;
 typedef struct OGRCoordinateTransformationHS *OGRCoordinateTransformationH;
 #else
@@ -1004,6 +1003,8 @@ OSRGetCRSInfoListFromDatabase(const char *pszAuthName,
                               int *pnOutResultCount);
 
 void CPL_DLL OSRDestroyCRSInfoList(OSRCRSInfo **list);
+
+char CPL_DLL **OSRGetAuthorityListFromDatabase(void);
 
 /* -------------------------------------------------------------------- */
 /*      OGRCoordinateTransform C API.                                   */

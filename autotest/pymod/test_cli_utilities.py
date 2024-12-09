@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 ###############################################################################
-# $Id$
 #
 # Project:  GDAL/OGR Test Suite
 # Purpose:  Helper functions for testing CLI utilities
@@ -202,6 +201,14 @@ def get_gdal_contour_path():
 
 def get_gdaldem_path():
     return get_cli_utility_path("gdaldem")
+
+
+###############################################################################
+#
+
+
+def get_gdalenhance_path():
+    return get_cli_utility_path("gdalenhance")
 
 
 ###############################################################################

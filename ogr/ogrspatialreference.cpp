@@ -4569,6 +4569,14 @@ OGRErr OGRSpatialReference::importFromURNPart(const char *pszAuthority,
 OGRErr OGRSpatialReference::importFromURN(const char *pszURN)
 
 {
+    constexpr const char *EPSG_URN_CRS_PREFIX = "urn:ogc:def:crs:EPSG::";
+    if (STARTS_WITH(pszURN, EPSG_URN_CRS_PREFIX) &&
+        CPLGetValueType(pszURN + strlen(EPSG_URN_CRS_PREFIX)) ==
+            CPL_VALUE_INTEGER)
+    {
+        return importFromEPSG(atoi(pszURN + strlen(EPSG_URN_CRS_PREFIX)));
+    }
+
     TAKE_OPTIONAL_LOCK();
 
 #if PROJ_AT_LEAST_VERSION(8, 1, 0)
@@ -9516,7 +9524,7 @@ int OSRIsDynamic(OGRSpatialReferenceH hSRS)
  * \brief Check if a CRS has at least an associated point motion operation.
  *
  * Some CRS are not formally declared as dynamic, but may behave as such
- * in practice due to the prsence of point motion operation, to perform
+ * in practice due to the presence of point motion operation, to perform
  * coordinate epoch changes within the CRS. Typically NAD83(CSRS)v7
  *
  * @return true if the CRS has at least an associated point motion operation.
@@ -9552,7 +9560,7 @@ bool OGRSpatialReference::HasPointMotionOperation() const
  * \brief Check if a CRS has at least an associated point motion operation.
  *
  * Some CRS are not formally declared as dynamic, but may behave as such
- * in practice due to the prsence of point motion operation, to perform
+ * in practice due to the presence of point motion operation, to perform
  * coordinate epoch changes within the CRS. Typically NAD83(CSRS)v7
  *
  * This function is the same as OGRSpatialReference::HasPointMotionOperation().
@@ -11923,12 +11931,57 @@ OGRErr OGRSpatialReference::importFromEPSGA(int nCode)
 
     CPLString osCode;
     osCode.Printf("%d", nCode);
-    auto obj =
-        proj_create_from_database(d->getPROJContext(), "EPSG", osCode.c_str(),
-                                  PJ_CATEGORY_CRS, true, nullptr);
-    if (!obj)
+    PJ *obj;
+    constexpr int FIRST_NON_DEPRECATED_ESRI_CODE = 53001;
+    if (nCode < FIRST_NON_DEPRECATED_ESRI_CODE)
     {
-        return OGRERR_FAILURE;
+        obj = proj_create_from_database(d->getPROJContext(), "EPSG",
+                                        osCode.c_str(), PJ_CATEGORY_CRS, true,
+                                        nullptr);
+        if (!obj)
+        {
+            return OGRERR_FAILURE;
+        }
+    }
+    else
+    {
+        // Likely to be an ESRI CRS...
+        CPLErr eLastErrorType = CE_None;
+        CPLErrorNum eLastErrorNum = CPLE_None;
+        std::string osLastErrorMsg;
+        bool bIsESRI = false;
+        {
+            CPLErrorStateBackuper oBackuper(CPLQuietErrorHandler);
+            CPLErrorReset();
+            obj = proj_create_from_database(d->getPROJContext(), "EPSG",
+                                            osCode.c_str(), PJ_CATEGORY_CRS,
+                                            true, nullptr);
+            if (!obj)
+            {
+                eLastErrorType = CPLGetLastErrorType();
+                eLastErrorNum = CPLGetLastErrorNo();
+                osLastErrorMsg = CPLGetLastErrorMsg();
+                obj = proj_create_from_database(d->getPROJContext(), "ESRI",
+                                                osCode.c_str(), PJ_CATEGORY_CRS,
+                                                true, nullptr);
+                if (obj)
+                    bIsESRI = true;
+            }
+        }
+        if (!obj)
+        {
+            if (eLastErrorType != CE_None)
+                CPLError(eLastErrorType, eLastErrorNum, "%s",
+                         osLastErrorMsg.c_str());
+            return OGRERR_FAILURE;
+        }
+        if (bIsESRI)
+        {
+            CPLError(CE_Warning, CPLE_AppDefined,
+                     "EPSG:%d is not a valid CRS code, but ESRI:%d is. "
+                     "Assuming ESRI:%d was meant",
+                     nCode, nCode, nCode);
+        }
     }
 
     if (bUseNonDeprecated && proj_is_deprecated(obj))
@@ -12852,6 +12905,38 @@ void OSRDestroyCRSInfoList(OSRCRSInfo **list)
         }
         delete[] list;
     }
+}
+
+/************************************************************************/
+/*                   OSRGetAuthorityListFromDatabase()                  */
+/************************************************************************/
+
+/** \brief Return the list of CRS authorities used in the PROJ database.
+ *
+ * Such as "EPSG", "ESRI", "PROJ", "IGNF", "IAU_2015", etc.
+ *
+ * This is a direct mapping of https://proj.org/en/latest/development/reference/functions.html#c.proj_get_authorities_from_database
+ *
+ * @return nullptr in case of error, or a NULL terminated list of strings to
+ * free with CSLDestroy()
+ * @since GDAL 3.10
+ */
+char **OSRGetAuthorityListFromDatabase()
+{
+    PROJ_STRING_LIST list =
+        proj_get_authorities_from_database(OSRGetProjTLSContext());
+    if (!list)
+    {
+        return nullptr;
+    }
+    int count = 0;
+    while (list[count])
+        ++count;
+    char **res = static_cast<char **>(CPLCalloc(count + 1, sizeof(char *)));
+    for (int i = 0; i < count; ++i)
+        res[i] = CPLStrdup(list[i]);
+    proj_string_list_destroy(list);
+    return res;
 }
 
 /************************************************************************/
