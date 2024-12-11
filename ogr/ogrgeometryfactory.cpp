@@ -481,6 +481,37 @@ OGRErr OGRGeometryFactory::createFromWkt(const char *pszData,
     return createFromWkt(&pszData, poSR, ppoReturn);
 }
 
+/**
+ * \brief Create a geometry object of the appropriate type from its
+ * well known text representation.
+ *
+ * The C function OGR_G_CreateFromWkt() is the same as this method.
+ *
+ * @param pszData input zero terminated string containing well known text
+ *                representation of the geometry to be created.
+ * @param poSR pointer to the spatial reference to be assigned to the
+ *             created geometry object.  This may be NULL.
+
+ * @return a pair of the newly created geometry an error code of OGRERR_NONE
+ * if all goes well, otherwise any of OGRERR_NOT_ENOUGH_DATA,
+ * OGRERR_UNSUPPORTED_GEOMETRY_TYPE, or OGRERR_CORRUPT_DATA.
+ *
+ * @since GDAL 3.11
+ */
+
+std::pair<std::unique_ptr<OGRGeometry>, OGRErr>
+OGRGeometryFactory::createFromWkt(const char *pszData,
+                                  const OGRSpatialReference *poSR)
+
+{
+    std::unique_ptr<OGRGeometry> poGeom;
+    OGRGeometry *poTmpGeom;
+    auto err = createFromWkt(&pszData, poSR, &poTmpGeom);
+    poGeom.reset(poTmpGeom);
+
+    return {std::move(poGeom), err};
+}
+
 /************************************************************************/
 /*                        OGR_G_CreateFromWkt()                         */
 /************************************************************************/
@@ -1979,7 +2010,7 @@ OGRGeometry *OGRGeometryFactory::organizePolygons(OGRGeometry **papoPolygons,
                                 // If it is outside, then i cannot be inside j.
                                 break;
                             }
-                            previousPoint = point;
+                            previousPoint = std::move(point);
                         }
                         if (!b_i_inside_j && k == nPoints && nPoints > 2)
                         {
@@ -2021,7 +2052,7 @@ OGRGeometry *OGRGeometryFactory::organizePolygons(OGRGeometry **papoPolygons,
                                     // j.
                                     break;
                                 }
-                                previousPoint = point;
+                                previousPoint = std::move(point);
                             }
                         }
                     }
@@ -3855,7 +3886,8 @@ bool OGRGeometryFactory::isTransformWithOptionsRegularTransform(
         return false;
 
 #ifdef HAVE_GEOS
-    if (poSourceCRS->IsProjected() && poTargetCRS->IsGeographic() &&
+    if (poSourceCRS && poTargetCRS && poSourceCRS->IsProjected() &&
+        poTargetCRS->IsGeographic() &&
         poTargetCRS->GetAxisMappingStrategy() == OAMS_TRADITIONAL_GIS_ORDER &&
         // check that angular units is degree
         std::fabs(poTargetCRS->GetAngularUnits(nullptr) -

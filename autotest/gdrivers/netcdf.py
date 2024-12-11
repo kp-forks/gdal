@@ -1,7 +1,6 @@
 #!/usr/bin/env pytest
 # -*- coding: utf-8 -*-
 ###############################################################################
-# $Id$
 #
 # Project:  GDAL/OGR Test Suite
 # Purpose:  Test NetCDF driver support.
@@ -6583,3 +6582,55 @@ def test_netcdf_extra_dim_no_georef(tmp_path):
     ds = gdal.Open(fname)
     assert ds.RasterCount == 4
     assert ds.ReadRaster() == src_ds.ReadRaster()
+
+
+###############################################################################
+# Verify that we can generate an output that is byte-identical to the expected golden file.
+# (might be risky depending on libopenjp2...)
+
+
+@pytest.mark.parametrize(
+    "src_filename,golden_file,creation_options",
+    [
+        # Created with gdal_translate gdal_translate autotest/gcore/data/byte.tif autotest/gdrivers/data/netcdf/byte_nc3_golden.nc  -co WRITE_GDAL_VERSION=NO  -co WRITE_GDAL_HISTORY=NO -co FORMAT=NC
+        (
+            "../gcore/data/byte.tif",
+            "data/netcdf/byte_nc3_golden.nc",
+            ["WRITE_GDAL_VERSION=NO", "WRITE_GDAL_HISTORY=NO", "FORMAT=NC"],
+        ),
+    ],
+)
+# I've that feeling that netCDF might be host endianness dependent...
+@pytest.mark.skipif(
+    sys.byteorder != "little", reason="only supported on little-endian hosts"
+)
+def test_netcdf_write_check_golden_file(
+    tmp_path, src_filename, golden_file, creation_options
+):
+
+    out_filename = str(tmp_path / "test.nc")
+    with gdal.Open(src_filename) as src_ds:
+        gdal.GetDriverByName("netCDF").CreateCopy(
+            out_filename, src_ds, options=creation_options
+        )
+    assert os.stat(golden_file).st_size == os.stat(out_filename).st_size
+    assert open(golden_file, "rb").read() == open(out_filename, "rb").read()
+
+
+###############################################################################
+# Test we identify a geolocation array for a variable that lacks a
+# "coordinates" attribute, but that has side "lon" and "lat" 2D variables
+# whose dimensions are the same as the last 2 ones of the variable of interest
+
+
+def test_netcdf_var_with_geoloc_array_but_no_coordinates_attr():
+
+    ds = gdal.Open(
+        "NETCDF:data/netcdf/var_with_geoloc_array_but_no_coordinates_attr.nc:NO2"
+    )
+    got_md = ds.GetMetadata("GEOLOCATION")
+    assert got_md
+    assert (
+        got_md["X_DATASET"]
+        == 'NETCDF:"data/netcdf/var_with_geoloc_array_but_no_coordinates_attr.nc":lon'
+    )

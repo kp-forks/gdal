@@ -1,5 +1,4 @@
 /******************************************************************************
- * $Id$
  *
  * Project:  OpenGIS Simple Features Reference Implementation
  * Purpose:  Some private helper functions and stuff for OGR implementation.
@@ -320,5 +319,14 @@ inline void OGRRoundCoordinatesIEEE754(int nBitsPrecision, GByte *pabyBase,
         }
     }
 }
+
+/* -------------------------------------------------------------------- */
+/*      helper functions for string escaping.                           */
+/* -------------------------------------------------------------------- */
+
+/** Replace all occurrences of ch by it repeated twice.
+ * Typically used for SQL string literal or identifier escaping.
+ */
+std::string CPL_DLL OGRDuplicateCharacter(const std::string &osStr, char ch);
 
 #endif /* ndef OGR_P_H_INCLUDED */

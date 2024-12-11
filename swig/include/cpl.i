@@ -1,5 +1,4 @@
 /******************************************************************************
- * $Id$
  *
  * Name:     cpl.i
  * Project:  GDAL Python Interface
@@ -503,7 +502,7 @@ char** wrapper_GetConfigOptions() {
 
     papszOpts = CSLMerge(papszOpts, papszTLOpts);
 
-    CPLFree(papszTLOpts);
+    CSLDestroy(papszTLOpts);
 
     return papszOpts;
 };
@@ -740,6 +739,14 @@ void CopyFileRestartable(const char* pszSource,
 }
 #endif
 
+}
+
+%rename (MoveFile) wrapper_MoveFile;
+%inline {
+int wrapper_MoveFile(const char* pszSource, const char* pszTarget)
+{
+    return CPLMoveFile(pszTarget, pszSource);
+}
 }
 
 %clear (const char* pszSource);
@@ -996,7 +1003,7 @@ void MultipartUploadGetCapabilities(
 }
 
 %inline {
-char* MultipartUploadStart(const char *pszFilename, char** options = NULL)
+retStringAndCPLFree* MultipartUploadStart(const char *pszFilename, char** options = NULL)
 {
     return VSIMultipartUploadStart(pszFilename, options);
 }
@@ -1005,7 +1012,7 @@ char* MultipartUploadStart(const char *pszFilename, char** options = NULL)
 %apply (size_t nLen, char *pBuf ) { (size_t nDataLength, const char *pData)};
 
 %inline {
-char* MultipartUploadAddPart(const char *pszFilename,
+retStringAndCPLFree* MultipartUploadAddPart(const char *pszFilename,
                              const char *pszUploadId,
                              int nPartNumber,
                              GUIntBig nFileOffset,

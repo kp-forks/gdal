@@ -1,5 +1,4 @@
 /******************************************************************************
- * $Id$
  *
  * Project:  OpenGIS Simple Features Reference Implementation
  * Purpose:  Definitions of OGR OGRGeoJSON driver types.
@@ -291,6 +290,9 @@ class OGRGeoJSONDataSource final : public GDALDataset
     virtual CPLErr FlushCache(bool bAtClosing) override;
 
     CPLErr Close() override;
+
+    // Analyze the OGR_SCHEMA open options and apply changes to the feature definition, return false in case of a critical error
+    bool DealWithOgrSchemaOpenOption(const GDALOpenInfo *poOpenInfo);
 
     static const size_t SPACE_FOR_BBOX = 130;
 

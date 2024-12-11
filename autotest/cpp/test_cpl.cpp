@@ -1293,16 +1293,26 @@ TEST_F(test_cpl, CPLExpandTilde)
     CPLSetConfigOption("HOME", nullptr);
 }
 
-TEST_F(test_cpl, CPLString_constructors)
+TEST_F(test_cpl, CPLDeclareKnownConfigOption)
 {
-    // CPLString(std::string) constructor
-    ASSERT_STREQ(CPLString(std::string("abc")).c_str(), "abc");
+    CPLConfigOptionSetter oDebugSetter("CPL_DEBUG", "ON", false);
+    {
+        CPLErrorStateBackuper oErrorStateBackuper(CPLQuietErrorHandler);
+        CPLErrorReset();
+        CPLConfigOptionSetter oDeclaredConfigOptionSetter("UNDECLARED_OPTION",
+                                                          "FOO", false);
+        EXPECT_STREQ(CPLGetLastErrorMsg(),
+                     "Unknown configuration option 'UNDECLARED_OPTION'.");
+    }
+    {
+        CPLDeclareKnownConfigOption("DECLARED_OPTION", nullptr);
 
-    // CPLString(const char*) constructor
-    ASSERT_STREQ(CPLString("abc").c_str(), "abc");
-
-    // CPLString(const char*, n) constructor
-    ASSERT_STREQ(CPLString("abc", 1).c_str(), "a");
+        CPLErrorStateBackuper oErrorStateBackuper(CPLQuietErrorHandler);
+        CPLErrorReset();
+        CPLConfigOptionSetter oDeclaredConfigOptionSetter("DECLARED_OPTION",
+                                                          "FOO", false);
+        EXPECT_STREQ(CPLGetLastErrorMsg(), "");
+    }
 }
 
 TEST_F(test_cpl, CPLErrorSetState)
@@ -1775,6 +1785,16 @@ TEST_F(test_cpl, CPLParseMemorySize)
     result = CPLParseMemorySize("100%", &nValue, &bUnitSpecified);
     EXPECT_EQ(result, CE_None);
     EXPECT_GT(nValue, 100 * 1024 * 1024);
+    EXPECT_TRUE(bUnitSpecified);
+
+    result = CPLParseMemorySize("0", &nValue, &bUnitSpecified);
+    EXPECT_EQ(result, CE_None);
+    EXPECT_EQ(nValue, 0);
+    EXPECT_FALSE(bUnitSpecified);
+
+    result = CPLParseMemorySize("0MB", &nValue, &bUnitSpecified);
+    EXPECT_EQ(result, CE_None);
+    EXPECT_EQ(nValue, 0);
     EXPECT_TRUE(bUnitSpecified);
 
     result = CPLParseMemorySize("  802  ", &nValue, &bUnitSpecified);

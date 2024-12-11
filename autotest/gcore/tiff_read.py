@@ -1,7 +1,6 @@
 #!/usr/bin/env pytest
 # -*- coding: utf-8 -*-
 ###############################################################################
-# $Id$
 #
 # Project:  GDAL/OGR Test Suite
 # Purpose:  Test basic read support for a all datatypes from a TIFF file.
@@ -2128,6 +2127,10 @@ def test_tiff_read_md1():
         md["ACQUISITIONDATETIME"] == "2010-04-01 12:00:00"
     ), "bad value for IMAGERY[ACQUISITIONDATETIME]"
 
+    # Check that IMD metadata domain is not sorted (https://github.com/OSGeo/gdal/issues/11470)
+    md = ds.GetMetadata_List("IMD")
+    assert md[0] == 'version="24.06"'
+
     ds = None
 
     assert not os.path.exists("data/md_dg.tif.aux.xml")
@@ -3266,7 +3269,7 @@ def test_tiff_read_gcp_internal_and_auxxml(
 # Test reading .tif + .aux
 
 
-class myHandlerClass(object):
+class myHandlerClass:
     def __init__(self):
         self.msg = None
 
