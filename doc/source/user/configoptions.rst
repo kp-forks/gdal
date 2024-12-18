@@ -68,6 +68,20 @@ they can be limited to only the current thread with
 For boolean options, the values YES, TRUE or ON can be used to turn the option on;
 NO, FALSE or OFF to turn it off.
 
+How to detect if the passed configuration option is known to GDAL
+-----------------------------------------------------------------
+
+By default GDAL will not warn if the name of the configuration option is unknown.
+Starting with GDAL 3.11, if you set the :config:`CPL_DEBUG` configuration
+option to ``ON`` (or any value that is not ``OFF``, ``FALSE``, ``NO``), a GDAL
+warning will be emitted for unknown configuration options.
+
+.. code-block:: shell
+
+    $ gdalinfo --config BAD_OPTION=TEST --debug on --version
+    Warning 1: CPLSetConfigOption() called with key=BAD_OPTION, which is unknown to GDAL
+    [...]
+
 
 .. _gdal_configuration_file:
 
@@ -222,7 +236,10 @@ Performance and caching
       :program:`gdalwarp`.
       If its value is small (less than 100000), it is assumed to be measured in megabytes,
       otherwise in bytes. Alternatively, the value can be set to "X%" to mean X%
-      of the usable physical RAM. Note that this value is only consulted the first
+      of the usable physical RAM.
+      Since GDAL 3.11, the value of :config:`GDAL_CACHEMAX` may specify the
+      units directly (e.g., "500MB", "2GB").
+      Note that this value is only consulted the first
       time the cache size is requested.  To change this value programmatically
       during operation of the program it is better to use
       :cpp:func:`GDALSetCacheMax` (always in bytes) or or
@@ -318,6 +335,9 @@ Performance and caching
       Set the size of the VSI cache. Be wary of large values for
       ``VSI_CACHE_SIZE`` when opening VRT datasources containing many source
       rasters, as this is a per-file cache.
+      Since GDAL 3.11, the value of ``VSI_CACHE_SIZE`` may be specified using
+      memory units (e.g., "25 MB").
+
 
 Driver management
 ^^^^^^^^^^^^^^^^^
@@ -421,7 +441,7 @@ General options
       option.
 
 -  .. config:: CPL_VSIL_DEFLATE_CHUNK_SIZE
-      :default: 1 M
+      :default: 1M
 
 -  .. config:: GDAL_DISABLE_CPLLOCALEC
       :choices: YES, NO
@@ -610,7 +630,8 @@ Networking options
       :since: 2.3
 
       Size of global least-recently-used (LRU) cache shared among all downloaded
-      content.
+      content. Value is assumed to represent bytes unless memory units are
+      specified (since GDAL 3.11).
 
 -  .. config:: CPL_VSIL_CURL_USE_HEAD
       :choices: YES, NO
@@ -657,6 +678,9 @@ Networking options
 -  .. config:: CPL_VSIL_CURL_CHUNK_SIZE
       :choices: <bytes>
       :since: 2.3
+
+      Value is assumed to represent bytes unless memory units are
+      specified (since GDAL 3.11).
 
 -  .. config:: GDAL_INGESTED_BYTES_AT_OPEN
       :since: 2.3
