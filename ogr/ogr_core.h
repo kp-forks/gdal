@@ -1,5 +1,4 @@
 /******************************************************************************
- * $Id$
  *
  * Project:  OpenGIS Simple Features Reference Implementation
  * Purpose:  Define some core portability services for cross-platform OGR code.
@@ -391,6 +390,13 @@ typedef int OGRBoolean;
 /*      ogr_geometry.h related definitions.                             */
 /* -------------------------------------------------------------------- */
 
+#if defined(HAVE_GCC_DIAGNOSTIC_PUSH) && __STDC_VERSION__ < 202311L
+/* wkbPoint25D and friends cause warnings with -Wpedantic prior to C23. */
+/* Cf https://github.com/OSGeo/gdal/issues/2322 */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
+
 /**
  * List of well known binary geometry types.  These are used within the BLOBs
  * but are also returned from OGRGeometry::getGeometryType() to identify the
@@ -511,6 +517,10 @@ typedef enum
     wkbGeometryCollection25D = 0x80000007 /**< 2.5D extension as per 99-402 */
 #endif
 } OGRwkbGeometryType;
+
+#if defined(HAVE_GCC_DIAGNOSTIC_PUSH) && __STDC_VERSION__ < 202311L
+#pragma GCC diagnostic pop
+#endif
 
 /* clang-format off */
 /**
