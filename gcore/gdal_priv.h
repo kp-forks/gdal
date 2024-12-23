@@ -1,5 +1,4 @@
 /******************************************************************************
- * $Id$
  *
  * Name:     gdal_priv.h
  * Project:  GDAL Core
@@ -1810,6 +1809,9 @@ class CPL_DLL GDALRasterBand : public GDALMajorObject
     virtual CPLErr SetStatistics(double dfMin, double dfMax, double dfMean,
                                  double dfStdDev);
     virtual CPLErr ComputeRasterMinMax(int bApproxOK, double *adfMinMax);
+    virtual CPLErr ComputeRasterMinMaxLocation(double *pdfMin, double *pdfMax,
+                                               int *pnMinX, int *pnMinY,
+                                               int *pnMaxX, int *pnMaxY);
 
 // Only defined when Doxygen enabled
 #ifdef DOXYGEN_SKIP
@@ -2154,6 +2156,14 @@ class CPL_DLL GDALDriver : public GDALMajorObject
                                 GDALDataset *poSourceDS,
                                 CSLConstList papszVectorTranslateArguments,
                                 char ***ppapszFailureReasons);
+
+    /**
+     * \brief Returns TRUE if the given open option is supported by the driver.
+     * @param pszOpenOptionName name of the open option to be checked
+     * @return TRUE if the driver supports the open option
+     * @since GDAL 3.11
+     */
+    bool HasOpenOption(const char *pszOpenOptionName) const;
 
     GDALDataset *
     VectorTranslateFrom(const char *pszDestName, GDALDataset *poSourceDS,
