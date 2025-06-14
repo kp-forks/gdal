@@ -13,6 +13,7 @@
  ****************************************************************************/
 
 #include "cpl_port.h"
+#include "cpl_float.h"
 #include "gdal_priv.h"
 
 #include <climits>
@@ -541,6 +542,7 @@ DEFINE_GetGDTFromCppType(uint32_t, GDT_UInt32);
 DEFINE_GetGDTFromCppType(int32_t, GDT_Int32);
 DEFINE_GetGDTFromCppType(uint64_t, GDT_UInt64);
 DEFINE_GetGDTFromCppType(int64_t, GDT_Int64);
+DEFINE_GetGDTFromCppType(GFloat16, GDT_Float16);
 DEFINE_GetGDTFromCppType(float, GDT_Float32);
 DEFINE_GetGDTFromCppType(double, GDT_Float64);
 // Not allowed by C++ standard
@@ -760,6 +762,7 @@ INSTANTIATE_READ_RASTER(uint32_t)
 INSTANTIATE_READ_RASTER(int32_t)
 INSTANTIATE_READ_RASTER(uint64_t)
 INSTANTIATE_READ_RASTER(int64_t)
+INSTANTIATE_READ_RASTER(GFloat16)
 INSTANTIATE_READ_RASTER(float)
 INSTANTIATE_READ_RASTER(double)
 // Not allowed by C++ standard
@@ -974,6 +977,7 @@ INSTANTIATE_READ_RASTER_VECTOR(uint32_t)
 INSTANTIATE_READ_RASTER_VECTOR(int32_t)
 INSTANTIATE_READ_RASTER_VECTOR(uint64_t)
 INSTANTIATE_READ_RASTER_VECTOR(int64_t)
+INSTANTIATE_READ_RASTER_VECTOR(GFloat16)
 INSTANTIATE_READ_RASTER_VECTOR(float)
 INSTANTIATE_READ_RASTER_VECTOR(double)
 // Not allowed by C++ standard
@@ -1016,8 +1020,8 @@ INSTANTIATE_READ_RASTER_VECTOR(std::complex<double>)
      int nXBlockSize, nYBlockSize;
 
      poBand->GetBlockSize( &nXBlockSize, &nYBlockSize );
-     int nXBlocks = (poBand->GetXSize() + nXBlockSize - 1) / nXBlockSize;
-     int nYBlocks = (poBand->GetYSize() + nYBlockSize - 1) / nYBlockSize;
+     int nXBlocks = DIV_ROUND_UP(poBand->GetXSize(), nXBlockSize);
+     int nYBlocks = DIV_ROUND_UP(poBand->GetYSize(), nYBlockSize);
 
      GByte *pabyData = (GByte *) CPLMalloc(nXBlockSize * nYBlockSize);
 
@@ -8293,7 +8297,7 @@ GDALRasterBand *GDALRasterBand::GetMaskBand()
     /* -------------------------------------------------------------------- */
     if (poDS != nullptr && poDS->oOvManager.HaveMaskFile())
     {
-        poMask.reset(poDS->oOvManager.GetMaskBand(nBand), false);
+        poMask.resetNotOwned(poDS->oOvManager.GetMaskBand(nBand));
         if (poMask != nullptr)
         {
             nMaskFlags = poDS->oOvManager.GetMaskFlags(nBand);
@@ -8337,7 +8341,8 @@ GDALRasterBand *GDALRasterBand::GetMaskBand()
                     nMaskFlags = GMF_NODATA | GMF_PER_DATASET;
                     try
                     {
-                        poMask.reset(new GDALNoDataValuesMaskBand(poDS), true);
+                        poMask.reset(
+                            std::make_unique<GDALNoDataValuesMaskBand>(poDS));
                     }
                     catch (const std::bad_alloc &)
                     {
@@ -8376,7 +8381,7 @@ GDALRasterBand *GDALRasterBand::GetMaskBand()
         nMaskFlags = GMF_NODATA;
         try
         {
-            poMask.reset(new GDALNoDataMaskBand(this), true);
+            poMask.reset(std::make_unique<GDALNoDataMaskBand>(this));
         }
         catch (const std::bad_alloc &)
         {
@@ -8396,7 +8401,7 @@ GDALRasterBand *GDALRasterBand::GetMaskBand()
         if (poDS->GetRasterBand(2)->GetRasterDataType() == GDT_Byte)
         {
             nMaskFlags = GMF_ALPHA | GMF_PER_DATASET;
-            poMask.reset(poDS->GetRasterBand(2), false);
+            poMask.resetNotOwned(poDS->GetRasterBand(2));
             return poMask.get();
         }
         else if (poDS->GetRasterBand(2)->GetRasterDataType() == GDT_UInt16)
@@ -8404,8 +8409,8 @@ GDALRasterBand *GDALRasterBand::GetMaskBand()
             nMaskFlags = GMF_ALPHA | GMF_PER_DATASET;
             try
             {
-                poMask.reset(new GDALRescaledAlphaBand(poDS->GetRasterBand(2)),
-                             true);
+                poMask.reset(std::make_unique<GDALRescaledAlphaBand>(
+                    poDS->GetRasterBand(2)));
             }
             catch (const std::bad_alloc &)
             {
@@ -8424,7 +8429,7 @@ GDALRasterBand *GDALRasterBand::GetMaskBand()
         if (poDS->GetRasterBand(4)->GetRasterDataType() == GDT_Byte)
         {
             nMaskFlags = GMF_ALPHA | GMF_PER_DATASET;
-            poMask.reset(poDS->GetRasterBand(4), false);
+            poMask.resetNotOwned(poDS->GetRasterBand(4));
             return poMask.get();
         }
         else if (poDS->GetRasterBand(4)->GetRasterDataType() == GDT_UInt16)
@@ -8432,8 +8437,8 @@ GDALRasterBand *GDALRasterBand::GetMaskBand()
             nMaskFlags = GMF_ALPHA | GMF_PER_DATASET;
             try
             {
-                poMask.reset(new GDALRescaledAlphaBand(poDS->GetRasterBand(4)),
-                             true);
+                poMask.reset(std::make_unique<GDALRescaledAlphaBand>(
+                    poDS->GetRasterBand(4)));
             }
             catch (const std::bad_alloc &)
             {
@@ -8450,7 +8455,7 @@ GDALRasterBand *GDALRasterBand::GetMaskBand()
     nMaskFlags = GMF_ALL_VALID;
     try
     {
-        poMask.reset(new GDALAllValidMaskBand(this), true);
+        poMask.reset(std::make_unique<GDALAllValidMaskBand>(this));
     }
     catch (const std::bad_alloc &)
     {
@@ -9649,11 +9654,7 @@ class GDALMDArrayFromRasterBand final : public GDALMDArray
     bool IRead(const GUInt64 *arrayStartIdx, const size_t *count,
                const GInt64 *arrayStep, const GPtrDiff_t *bufferStride,
                const GDALExtendedDataType &bufferDataType,
-               void *pDstBuffer) const override
-    {
-        return ReadWrite(GF_Read, arrayStartIdx, count, arrayStep, bufferStride,
-                         bufferDataType, pDstBuffer);
-    }
+               void *pDstBuffer) const override;
 
     bool IWrite(const GUInt64 *arrayStartIdx, const size_t *count,
                 const GInt64 *arrayStep, const GPtrDiff_t *bufferStride,
@@ -9781,10 +9782,7 @@ class GDALMDArrayFromRasterBand final : public GDALMDArray
         }
 
         const std::vector<std::shared_ptr<GDALDimension>> &
-        GetDimensions() const override
-        {
-            return m_dims;
-        }
+        GetDimensions() const override;
 
         const GDALExtendedDataType &GetDataType() const override
         {
@@ -9822,6 +9820,21 @@ class GDALMDArrayFromRasterBand final : public GDALMDArray
         return res;
     }
 };
+
+bool GDALMDArrayFromRasterBand::IRead(
+    const GUInt64 *arrayStartIdx, const size_t *count, const GInt64 *arrayStep,
+    const GPtrDiff_t *bufferStride, const GDALExtendedDataType &bufferDataType,
+    void *pDstBuffer) const
+{
+    return ReadWrite(GF_Read, arrayStartIdx, count, arrayStep, bufferStride,
+                     bufferDataType, pDstBuffer);
+}
+
+const std::vector<std::shared_ptr<GDALDimension>> &
+GDALMDArrayFromRasterBand::MDIAsAttribute::GetDimensions() const
+{
+    return m_dims;
+}
 
 /************************************************************************/
 /*                            ReadWrite()                               */
@@ -10084,3 +10097,99 @@ CPLErr GDALRasterInterpolateAtGeolocation(GDALRasterBandH hBand,
         dfGeolocX, dfGeolocY, OGRSpatialReference::FromHandle(hSRS),
         eInterpolation, pdfRealValue, pdfImagValue, papszTransformerOptions);
 }
+
+/************************************************************************/
+/*                    GDALRasterBand::SplitRasterIO()                   */
+/************************************************************************/
+
+//! @cond Doxygen_Suppress
+
+/** Implements IRasterIO() by dividing the request in 2.
+ *
+ * Should only be called when nBufXSize == nXSize && nBufYSize == nYSize
+ *
+ * Return CE_Warning if the split could not be done, CE_None in case of
+ * success and CE_Failure in case of error.
+ *
+ * @since 3.12
+ */
+CPLErr GDALRasterBand::SplitRasterIO(GDALRWFlag eRWFlag, int nXOff, int nYOff,
+                                     [[maybe_unused]] int nXSize,
+                                     [[maybe_unused]] int nYSize, void *pData,
+                                     int nBufXSize, int nBufYSize,
+                                     GDALDataType eBufType,
+                                     GSpacing nPixelSpace, GSpacing nLineSpace,
+                                     GDALRasterIOExtraArg *psExtraArg)
+{
+    CPLAssert(nBufXSize == nXSize && nBufYSize == nYSize);
+
+    GByte *pabyData = static_cast<GByte *>(pData);
+    if ((nBufXSize == nRasterXSize || nBufYSize >= nBufXSize) && nBufYSize >= 2)
+    {
+        GDALRasterIOExtraArg sArg;
+        INIT_RASTERIO_EXTRA_ARG(sArg);
+        const int nHalfHeight = nBufYSize / 2;
+
+        sArg.pfnProgress = GDALScaledProgress;
+        sArg.pProgressData = GDALCreateScaledProgress(
+            0, 0.5, psExtraArg->pfnProgress, psExtraArg->pProgressData);
+        if (sArg.pProgressData == nullptr)
+            sArg.pfnProgress = nullptr;
+        CPLErr eErr = IRasterIO(eRWFlag, nXOff, nYOff, nBufXSize, nHalfHeight,
+                                pabyData, nBufXSize, nHalfHeight, eBufType,
+                                nPixelSpace, nLineSpace, &sArg);
+        GDALDestroyScaledProgress(sArg.pProgressData);
+
+        if (eErr == CE_None)
+        {
+            sArg.pfnProgress = GDALScaledProgress;
+            sArg.pProgressData = GDALCreateScaledProgress(
+                0.5, 1, psExtraArg->pfnProgress, psExtraArg->pProgressData);
+            if (sArg.pProgressData == nullptr)
+                sArg.pfnProgress = nullptr;
+            eErr = IRasterIO(eRWFlag, nXOff, nYOff + nHalfHeight, nBufXSize,
+                             nBufYSize - nHalfHeight,
+                             pabyData + nHalfHeight * nLineSpace, nBufXSize,
+                             nBufYSize - nHalfHeight, eBufType, nPixelSpace,
+                             nLineSpace, &sArg);
+            GDALDestroyScaledProgress(sArg.pProgressData);
+        }
+        return eErr;
+    }
+    else if (nBufXSize >= 2)
+    {
+        GDALRasterIOExtraArg sArg;
+        INIT_RASTERIO_EXTRA_ARG(sArg);
+        const int nHalfWidth = nBufXSize / 2;
+
+        sArg.pfnProgress = GDALScaledProgress;
+        sArg.pProgressData = GDALCreateScaledProgress(
+            0, 0.5, psExtraArg->pfnProgress, psExtraArg->pProgressData);
+        if (sArg.pProgressData == nullptr)
+            sArg.pfnProgress = nullptr;
+        CPLErr eErr = IRasterIO(eRWFlag, nXOff, nYOff, nHalfWidth, nBufYSize,
+                                pabyData, nHalfWidth, nBufYSize, eBufType,
+                                nPixelSpace, nLineSpace, &sArg);
+        GDALDestroyScaledProgress(sArg.pProgressData);
+
+        if (eErr == CE_None)
+        {
+            sArg.pfnProgress = GDALScaledProgress;
+            sArg.pProgressData = GDALCreateScaledProgress(
+                0.5, 1, psExtraArg->pfnProgress, psExtraArg->pProgressData);
+            if (sArg.pProgressData == nullptr)
+                sArg.pfnProgress = nullptr;
+            eErr = IRasterIO(eRWFlag, nXOff + nHalfWidth, nYOff,
+                             nBufXSize - nHalfWidth, nBufYSize,
+                             pabyData + nHalfWidth * nPixelSpace,
+                             nBufXSize - nHalfWidth, nBufYSize, eBufType,
+                             nPixelSpace, nLineSpace, &sArg);
+            GDALDestroyScaledProgress(sArg.pProgressData);
+        }
+        return eErr;
+    }
+
+    return CE_Warning;
+}
+
+//! @endcond

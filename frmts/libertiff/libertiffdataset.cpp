@@ -71,20 +71,7 @@ struct LIBERTIFFDatasetFileReader final : public LIBERTIFF_NS::FileReader
         return m_nFileSize;
     }
 
-    size_t read(uint64_t offset, size_t count, void *buffer) const override
-    {
-        if (m_bHasPread && m_bPReadAllowed)
-        {
-            return m_fp->PRead(buffer, count, offset);
-        }
-        else
-        {
-            std::lock_guard oLock(m_oMutex);
-            return m_fp->Seek(offset, SEEK_SET) == 0
-                       ? m_fp->Read(buffer, 1, count)
-                       : 0;
-        }
-    }
+    size_t read(uint64_t offset, size_t count, void *buffer) const override;
 
     void setPReadAllowed() const
     {
@@ -93,6 +80,21 @@ struct LIBERTIFFDatasetFileReader final : public LIBERTIFF_NS::FileReader
 
     CPL_DISALLOW_COPY_ASSIGN(LIBERTIFFDatasetFileReader)
 };
+
+size_t LIBERTIFFDatasetFileReader::read(uint64_t offset, size_t count,
+                                        void *buffer) const
+{
+    if (m_bHasPread && m_bPReadAllowed)
+    {
+        return m_fp->PRead(buffer, count, offset);
+    }
+    else
+    {
+        std::lock_guard oLock(m_oMutex);
+        return m_fp->Seek(offset, SEEK_SET) == 0 ? m_fp->Read(buffer, 1, count)
+                                                 : 0;
+    }
+}
 
 /************************************************************************/
 /*                         LIBERTIFFDataset                             */
@@ -535,12 +537,12 @@ void LIBERTIFFBand::InitMaskBand()
     else if (l_poDS->m_poMaskDS)
     {
         nMaskFlags = GMF_PER_DATASET;
-        poMask.reset(l_poDS->m_poMaskDS->GetRasterBand(1), false);
+        poMask.resetNotOwned(l_poDS->m_poMaskDS->GetRasterBand(1));
     }
     else if (l_poDS->m_poAlphaBand && l_poDS->m_poAlphaBand != this)
     {
         nMaskFlags = GMF_PER_DATASET | GMF_ALPHA;
-        poMask.reset(l_poDS->m_poAlphaBand, false);
+        poMask.resetNotOwned(l_poDS->m_poAlphaBand);
     }
     else
     {
