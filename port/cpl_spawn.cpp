@@ -452,12 +452,20 @@ void CPLSpawnAsyncCloseErrorFileHandle(CPLSpawnedProcess *p)
  */
 int CPLPipeRead(CPL_FILE_HANDLE fin, void *data, int length)
 {
+#ifdef __COVERITY__
+    (void)fin;
+    (void)data;
+    (void)length;
+    CPLError(CE_Failure, CPLE_AppDefined, "Not implemented");
+    return FALSE;
+#else
     GByte *pabyData = static_cast<GByte *>(data);
     int nRemain = length;
     while (nRemain > 0)
     {
         while (true)
         {
+            assert(nRemain > 0);
             // coverity[overflow_sink]
             const ssize_t n = read(fin, pabyData, nRemain);
             if (n < 0)
@@ -476,6 +484,7 @@ int CPLPipeRead(CPL_FILE_HANDLE fin, void *data, int length)
         }
     }
     return TRUE;
+#endif
 }
 
 /************************************************************************/
@@ -495,12 +504,20 @@ int CPLPipeRead(CPL_FILE_HANDLE fin, void *data, int length)
  */
 int CPLPipeWrite(CPL_FILE_HANDLE fout, const void *data, int length)
 {
+#ifdef __COVERITY__
+    (void)fout;
+    (void)data;
+    (void)length;
+    CPLError(CE_Failure, CPLE_AppDefined, "Not implemented");
+    return FALSE;
+#else
     const GByte *pabyData = static_cast<const GByte *>(data);
     int nRemain = length;
     while (nRemain > 0)
     {
         while (true)
         {
+            assert(nRemain > 0);
             // coverity[overflow_sink]
             const ssize_t n = write(fout, pabyData, nRemain);
             if (n < 0)
@@ -517,6 +534,7 @@ int CPLPipeWrite(CPL_FILE_HANDLE fout, const void *data, int length)
         }
     }
     return TRUE;
+#endif
 }
 
 /************************************************************************/
